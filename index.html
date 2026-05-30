@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Finance Pro - Premium Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Poppins', 'sans-serif'] }, colors: { brand: '#00f2fe', darkBg: '#0f172a' } } } }
+    </script>
+    <style>
+        /* BASE DESIGN & ANIMATION */
+        body { font-family: 'Poppins', sans-serif; background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #0f172a); background-size: 400% 400%; animation: gradientBG 15s ease infinite; color: #e2e8f0; margin: 0; }
+        @keyframes gradientBG { 0% { background-position: 0% 50% } 50% { background-position: 100% 50% } 100% { background-position: 0% 50% } }
+        .hide { display: none !important; }
+
+        /* GLASSMORPHISM */
+        .glass-panel { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); border-radius: 1.5rem; }
+        .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: white; transition: all 0.3s ease; }
+        .glass-input:focus { background: rgba(255, 255, 255, 0.1); border-color: #00f2fe; box-shadow: 0 0 15px rgba(0, 242, 254, 0.3); outline: none; }
+        .btn-primary { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #0f172a; transition: transform 0.2s; }
+        .btn-primary:active { transform: scale(0.95); }
+        .floating-nav { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255, 255, 255, 0.1); }
+        .modal-glass { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(25px); border-top: 1px solid #00f2fe; }
+        select option { background-color: #0f172a; color: white; }
+        ::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.7; cursor: pointer; }
+
+        /* 3D VIRTUAL CREDIT CARD */
+        .credit-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.18);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); border-radius: 20px; position: relative; overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        .credit-card::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+            transform: skewX(-20deg); animation: shine 6s infinite;
+        }
+        @keyframes shine { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
+
+        /* WALLET CAROUSEL */
+        .wallet-carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; gap: 12px; padding-bottom: 10px; }
+        .wallet-carousel::-webkit-scrollbar { display: none; } 
+        .wallet-card { flex: 0 0 auto; width: 140px; scroll-snap-align: start; }
+
+        .balance-counter { background: -webkit-linear-gradient(45deg, #fff, #a5b4fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 20px rgba(165, 180, 252, 0.3); }
+
+        /* BADGE STYLES */
+        .badge-icon { filter: grayscale(1); opacity: 0.3; transition: all 0.5s ease; }
+        .badge-active { filter: grayscale(0); opacity: 1; transform: scale(1.05); }
+        .badge-active i { text-shadow: 0 0 15px currentColor; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <div id="auth-section" class="flex-1 flex flex-col justify-center items-center p-6 relative z-10">
+        <div class="glass-panel p-8 w-full max-w-sm text-center relative z-20">
+            <div class="inline-block p-4 rounded-full bg-white/5 border border-white/10 mb-4 shadow-[0_0_15px_rgba(0,242,254,0.3)]">
+                <i class="fa-solid fa-wallet text-4xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500"></i>
+            </div>
+            <h2 class="text-2xl font-bold mb-2 tracking-wide">Finance Pro</h2>
+            <p class="text-xs text-gray-400 mb-8 uppercase">Smart Tracker</p>
+            
+            <div class="space-y-4">
+                <div class="relative"><i class="fa-regular fa-envelope absolute left-4 top-3.5 text-gray-400"></i><input type="email" id="email" placeholder="ইমেইল অ্যাড্রেস" class="glass-input w-full p-3 pl-10 rounded-xl"></div>
+                <div class="relative"><i class="fa-solid fa-lock absolute left-4 top-3.5 text-gray-400"></i><input type="password" id="password" placeholder="পাসওয়ার্ড" class="glass-input w-full p-3 pl-10 rounded-xl"></div>
+                <div id="conf-pass-wrapper" class="relative hide"><i class="fa-solid fa-shield-halved absolute left-4 top-3.5 text-gray-400"></i><input type="password" id="conf-password" placeholder="কনফার্ম পাসওয়ার্ড" class="glass-input w-full p-3 pl-10 rounded-xl"></div>
+            </div>
+            
+            <button id="auth-btn" onclick="handleAuth()" class="btn-primary w-full p-3 rounded-xl font-bold mt-6 shadow-lg shadow-blue-500/30">
+                <i class="fa-solid fa-right-to-bracket mr-2"></i>লগইন করুন
+            </button>
+            <p class="mt-6 text-sm text-gray-400 cursor-pointer" onclick="toggleAuthMode()"><span id="auth-toggle-text">অ্যাকাউন্ট নেই? <span class="text-brand font-semibold underline">রেজিস্টার করুন</span></span></p>
+        </div>
+    </div>
+
+    <div id="app-section" class="hide h-full flex flex-col relative z-10">
+        <div class="glass-panel rounded-none border-t-0 border-x-0 p-4 flex justify-between items-center shadow-lg">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-500 flex justify-center items-center font-bold text-slate-900 shadow-[0_0_10px_rgba(0,242,254,0.4)] overflow-hidden">
+                    <img id="header-avatar" src="" class="w-full h-full object-cover hide">
+                    <i id="header-icon" class="fa-solid fa-user-tie"></i>
+                </div>
+                <div>
+                    <p id="dynamic-greeting" class="text-xs text-brand font-semibold mb-0.5">শুভ সকাল ☀️</p>
+                    <h2 id="header-name" class="font-bold text-sm leading-tight text-gray-200">ইউজার</h2>
+                </div>
+            </div>
+            <button onclick="logoutUser()" class="w-8 h-8 rounded-full glass-input flex justify-center items-center text-red-400"><i class="fa-solid fa-power-off"></i></button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-5 pb-32">
+            
+            <div id="home-view" class="view-section transition-opacity duration-300">
+                <div class="credit-card p-6 mb-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <i class="fa-solid fa-microchip text-2xl text-yellow-400/80"></i>
+                        <span class="text-xs font-bold tracking-widest uppercase text-white/50">Finance Pro</span>
+                    </div>
+                    <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">মোট ব্যালেন্স</p>
+                    <h1 class="text-4xl font-extrabold mb-4 tracking-wider balance-counter">৳ <span id="ui-total-balance">0</span></h1>
+                    <div class="flex justify-between items-end">
+                        <p id="card-holder-name" class="text-sm font-semibold text-gray-300 tracking-widest uppercase">Tanvir Siyam</p>
+                        <div class="inline-flex items-center gap-1.5 bg-red-500/20 px-3 py-1 rounded-md text-xs text-red-300 border border-red-500/30">
+                            <i class="fa-solid fa-triangle-exclamation text-[10px]"></i><span id="ui-total-debt">ঋণ: ৳ 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="glass-panel p-4 border-t-2 border-green-400/50 bg-gradient-to-b from-green-400/5 to-transparent">
+                        <p class="text-xs text-gray-400 mb-1">আজকের আয়</p><p id="ui-today-income" class="text-lg font-bold text-green-400">+ ৳ 0</p>
+                    </div>
+                    <div class="glass-panel p-4 border-t-2 border-red-400/50 bg-gradient-to-b from-red-400/5 to-transparent">
+                        <p class="text-xs text-gray-400 mb-1">আজকের ব্যয়</p><p id="ui-today-expense" class="text-lg font-bold text-red-400">- ৳ 0</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-end mb-3 pl-1">
+                    <h3 class="font-semibold text-sm text-gray-300 uppercase tracking-wide">ওয়ালেটস</h3>
+                    <span class="text-[10px] text-gray-500 animate-pulse">সোয়াইপ করুন <i class="fa-solid fa-arrow-right-long"></i></span>
+                </div>
+                
+                <div class="wallet-carousel mb-4">
+                    <div class="glass-panel wallet-card p-4 flex flex-col justify-between"><div class="w-8 h-8 rounded-full bg-pink-500/20 text-pink-400 flex justify-center items-center mb-3"><i class="fa-solid fa-mobile-screen"></i></div><div><p class="text-xs text-gray-400 mb-1">বিকাশ</p><span id="ui-bal-bkash" class="font-bold text-white block truncate">৳ 0</span></div></div>
+                    <div class="glass-panel wallet-card p-4 flex flex-col justify-between"><div class="w-8 h-8 rounded-full bg-orange-500/20 text-orange-400 flex justify-center items-center mb-3"><i class="fa-solid fa-fire"></i></div><div><p class="text-xs text-gray-400 mb-1">নগদ</p><span id="ui-bal-nagad" class="font-bold text-white block truncate">৳ 0</span></div></div>
+                    <div class="glass-panel wallet-card p-4 flex flex-col justify-between"><div class="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex justify-center items-center mb-3"><i class="fa-solid fa-rocket"></i></div><div><p class="text-xs text-gray-400 mb-1">রকেট</p><span id="ui-bal-rocket" class="font-bold text-white block truncate">৳ 0</span></div></div>
+                    <div class="glass-panel wallet-card p-4 flex flex-col justify-between"><div class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex justify-center items-center mb-3"><i class="fa-solid fa-building-columns"></i></div><div><p class="text-xs text-gray-400 mb-1">ব্যাংক</p><span id="ui-bal-bank" class="font-bold text-white block truncate">৳ 0</span></div></div>
+                    <div class="glass-panel wallet-card p-4 flex flex-col justify-between border border-emerald-500/30 bg-emerald-500/5"><div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex justify-center items-center mb-3"><i class="fa-solid fa-money-bill-wave"></i></div><div><p class="text-xs text-emerald-400 mb-1">ক্যাশ</p><span id="ui-bal-cash" class="font-bold text-white block truncate">৳ 0</span></div></div>
+                </div>
+
+                <div id="ai-insight-card" class="glass-panel p-4 border-l-4 border-brand flex items-center gap-4 bg-gradient-to-r from-brand/5 to-transparent">
+                    <div class="w-10 h-10 rounded-full bg-brand/20 flex justify-center items-center text-brand flex-shrink-0"><i class="fa-solid fa-robot animate-bounce"></i></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-brand uppercase mb-1">স্মার্ট ইনসাইট</p>
+                        <p id="ai-insight-text" class="text-xs text-gray-300 leading-relaxed">আপনার ফিন্যান্সিয়াল ডাটা বিশ্লেষণ করছি...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="analyzer-view" class="view-section hide transition-opacity duration-300">
+                <div class="flex justify-center gap-4 mb-4 bg-white/5 p-2 rounded-2xl border border-white/10">
+                    <button id="btn-chart-income" onclick="setChartMode('income')" class="flex-1 py-2 btn-primary rounded-xl text-sm font-bold shadow-lg">Income (আয়)</button>
+                    <button id="btn-chart-expense" onclick="setChartMode('expense')" class="flex-1 py-2 text-gray-400 rounded-xl text-sm font-bold hover:bg-white/5 transition">Expense (ব্যয়)</button>
+                </div>
+                <div class="flex justify-between items-center gap-3 mb-4">
+                    <input type="date" id="chart-start-date" onchange="renderChart()" class="glass-input w-full p-2.5 rounded-xl text-xs">
+                    <span class="text-gray-400 text-xs">হতে</span>
+                    <input type="date" id="chart-end-date" onchange="renderChart()" class="glass-input w-full p-2.5 rounded-xl text-xs">
+                </div>
+                <div class="glass-panel p-4 mb-6"><canvas id="barChart" height="220"></canvas></div>
+                <div class="glass-panel p-5 space-y-3 mb-6">
+                    <div class="flex justify-between items-center border-b border-white/10 pb-2"><span class="text-gray-400 text-sm">মোট আয়</span><span id="ui-chart-income" class="text-green-400 font-bold">৳ 0</span></div>
+                    <div class="flex justify-between items-center border-b border-white/10 pb-2"><span class="text-gray-400 text-sm">মোট ব্যয়</span><span id="ui-chart-expense" class="text-red-400 font-bold">৳ 0</span></div>
+                    <div class="flex justify-between items-center pt-1"><span class="text-brand font-semibold text-sm">নীট সেভিংস</span><span id="ui-chart-savings" class="text-white font-bold">৳ 0</span></div>
+                </div>
+                <h3 class="font-semibold text-sm text-gray-300 mb-3 uppercase tracking-wide pl-1">ফিল্টার করা লেনদেন</h3>
+                <div id="analyzer-tx-list" class="space-y-3 mb-8"></div>
+            </div>
+
+            <div id="tracking-view" class="view-section hide transition-opacity duration-300">
+                <div class="flex justify-between items-center mb-4 pl-1"><h3 class="font-semibold text-sm text-gray-300 uppercase tracking-wide">ঋণ ও বকেয়া</h3><button onclick="openModal('debt')" class="text-xs bg-brand/20 text-brand px-3 py-1 rounded-full"><i class="fa-solid fa-plus mr-1"></i>অ্যাড</button></div>
+                <div id="debt-list" class="space-y-3 mb-8"></div>
+                <div class="flex justify-between items-center mb-4 pl-1"><h3 class="font-semibold text-sm text-gray-300 uppercase tracking-wide">সেভিংস টার্গেট</h3><button onclick="openModal('savings')" class="text-xs bg-brand/20 text-brand px-3 py-1 rounded-full"><i class="fa-solid fa-plus mr-1"></i>অ্যাড</button></div>
+                <div id="savings-list" class="space-y-3"></div>
+            </div>
+
+            <div id="profile-view" class="view-section hide transition-opacity duration-300">
+                
+                <div class="relative mb-8 mt-2">
+                    <div class="absolute inset-0 h-24 bg-gradient-to-r from-brand to-purple-600 rounded-3xl opacity-20 blur-sm"></div>
+                    <div class="glass-panel p-6 pt-12 text-center relative mt-12 border-t-4 border-brand shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
+                        
+                        <div class="absolute -top-12 left-1/2 transform -translate-x-1/2 w-24 h-24">
+                            <img id="ui-profile-img" src="" class="w-full h-full rounded-full object-cover border-4 border-[#0f172a] shadow-[0_0_20px_rgba(0,242,254,0.4)] hide">
+                            <div id="ui-profile-icon" class="w-full h-full rounded-full bg-gradient-to-tr from-cyan-400 to-blue-500 flex justify-center items-center text-4xl text-slate-900 shadow-[0_0_20px_rgba(0,242,254,0.4)] border-4 border-[#0f172a]"><i class="fa-solid fa-user-astronaut"></i></div>
+                            <label for="avatar-upload" class="absolute bottom-0 right-0 w-8 h-8 bg-brand rounded-full flex justify-center items-center text-slate-900 cursor-pointer shadow-lg hover:scale-110 transition-transform"><i class="fa-solid fa-camera text-sm"></i></label>
+                            <input type="file" id="avatar-upload" accept="image/*" class="hide" onchange="uploadAvatar(event)">
+                        </div>
+                        
+                        <div class="flex justify-center items-center gap-3 mb-1 mt-2">
+                            <h2 id="ui-profile-name" class="text-2xl font-bold tracking-wide text-white">ইউজার</h2>
+                            <button onclick="editProfileName()" class="text-gray-400 hover:text-brand transition-colors"><i class="fa-solid fa-pen-to-square"></i></button>
+                        </div>
+                        <div class="inline-block bg-brand/10 border border-brand/30 px-4 py-1 rounded-full mt-1">
+                            <p class="text-[10px] text-brand font-bold uppercase tracking-widest"><i class="fa-solid fa-star text-yellow-400 mr-1"></i> Finance Pro</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 mb-8">
+                    <div class="glass-panel p-4 text-center flex flex-col justify-center items-center bg-gradient-to-b from-blue-500/10 to-transparent">
+                        <i class="fa-solid fa-money-bill-transfer text-blue-400 text-xl mb-2"></i>
+                        <p id="ui-total-tx-count" class="font-bold text-white text-lg">0</p>
+                        <p class="text-[8px] text-gray-400 uppercase tracking-wider mt-1">লেনদেন</p>
+                    </div>
+                    <div class="glass-panel p-4 text-center flex flex-col justify-center items-center bg-gradient-to-b from-green-500/10 to-transparent">
+                        <i class="fa-solid fa-trophy text-green-400 text-xl mb-2"></i>
+                        <p id="ui-completed-challenges" class="font-bold text-white text-lg">0</p>
+                        <p class="text-[8px] text-gray-400 uppercase tracking-wider mt-1">চ্যালেঞ্জ</p>
+                    </div>
+                    <div class="glass-panel p-4 text-center flex flex-col justify-center items-center bg-gradient-to-b from-purple-500/10 to-transparent">
+                        <i class="fa-solid fa-chart-line text-purple-400 text-xl mb-2"></i>
+                        <p id="ui-savings-progress" class="font-bold text-white text-lg">0%</p>
+                        <p class="text-[8px] text-gray-400 uppercase tracking-wider mt-1">প্রগ্রেস</p>
+                    </div>
+                </div>
+
+                <h3 class="font-bold text-xs text-gray-300 uppercase mb-3 pl-1 tracking-widest">অ্যাচিভমেন্ট ব্যাজ</h3>
+                <div class="glass-panel p-5 mb-8 bg-white/5 border border-white/10">
+                    <div class="flex justify-around items-end">
+                        <div id="badge-saver" class="badge-icon flex flex-col items-center group relative">
+                            <div class="w-12 h-12 rounded-full bg-pink-500/10 border-2 border-pink-500/30 flex justify-center items-center mb-2 group-hover:bg-pink-500/20 transition-all"><i class="fa-solid fa-piggy-bank text-pink-400 text-xl"></i></div>
+                            <span class="text-[9px] font-bold text-gray-300 tracking-wider">SAVER</span>
+                        </div>
+                        <div id="badge-debt" class="badge-icon flex flex-col items-center group relative">
+                            <div class="w-14 h-14 rounded-full bg-green-500/10 border-2 border-green-500/30 flex justify-center items-center mb-2 shadow-[0_0_15px_rgba(74,222,128,0.15)]"><i class="fa-solid fa-shield-halved text-green-400 text-2xl"></i></div>
+                            <span class="text-[9px] font-bold text-gray-300 tracking-wider">CLEAN</span>
+                        </div>
+                        <div id="badge-pro" class="badge-icon flex flex-col items-center group relative">
+                            <div class="w-12 h-12 rounded-full bg-yellow-400/10 border-2 border-yellow-400/30 flex justify-center items-center mb-2 group-hover:bg-yellow-400/20 transition-all"><i class="fa-solid fa-crown text-yellow-400 text-xl"></i></div>
+                            <span class="text-[9px] font-bold text-gray-300 tracking-wider">PRO</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="font-bold text-xs text-gray-300 uppercase mb-3 pl-1 tracking-widest">সকল লেনদেন</h3>
+                <div id="history-list" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <div onclick="openModal('transaction')" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 w-16 h-16 rounded-full btn-primary flex justify-center items-center text-3xl shadow-[0_10px_25px_rgba(0,242,254,0.5)] cursor-pointer z-[60] hover:scale-105 transition-transform border-4 border-[#0f172a]">
+            <i class="fa-solid fa-plus"></i>
+        </div>
+
+        <div class="fixed bottom-0 left-0 w-full p-4 z-40">
+            <div class="floating-nav rounded-2xl flex justify-around p-3 pt-4 shadow-2xl mx-auto max-w-md h-[70px]">
+                <button onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center text-brand transition-all transform scale-110"><i class="fa-solid fa-house text-lg mb-1"></i><span class="text-[9px] font-medium">হোম</span></button>
+                <button onclick="switchTab('analyzer')" id="nav-analyzer" class="flex flex-col items-center text-gray-500 hover:text-white transition-all"><i class="fa-solid fa-chart-simple text-lg mb-1"></i><span class="text-[9px] font-medium">গ্রাফ</span></button>
+                <div class="w-10"></div> 
+                <button onclick="switchTab('tracking')" id="nav-tracking" class="flex flex-col items-center text-gray-500 hover:text-white transition-all"><i class="fa-solid fa-bullseye text-lg mb-1"></i><span class="text-[9px] font-medium">ট্র্যাকিং</span></button>
+                <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center text-gray-500 hover:text-white transition-all"><i class="fa-solid fa-user text-lg mb-1"></i><span class="text-[9px] font-medium">প্রোফাইল</span></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="universal-modal" class="hide fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex justify-center items-end">
+        <div class="modal-glass w-full rounded-t-3xl p-6 pb-10 shadow-2xl transform transition-transform max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="modal-title" class="font-bold text-lg text-white">নতুন এন্ট্রি</h3>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-white/10 text-gray-300 flex justify-center items-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://ilkghnvhofguzmoslbmv.supabase.co"; 
+        const SUPABASE_KEY = "sb_publishable_8WKR5FwODYRpihdwxzC2hQ_B8Zr-vmB";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let isLoginMode = true;
+        let chartMode = 'income'; 
+        let currentUserId = ''; 
+
+        function setGreeting() {
+            const hour = new Date().getHours();
+            let greet = "শুভ সন্ধ্যা 🌙";
+            if (hour >= 5 && hour < 12) greet = "শুভ সকাল ☀️";
+            else if (hour >= 12 && hour < 17) greet = "শুভ দুপুর 🌤️";
+            else if (hour >= 17 && hour < 20) greet = "শুভ বিকেল 🌅";
+            document.getElementById('dynamic-greeting').innerText = greet;
+        }
+        setGreeting();
+
+        window.onload = async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                currentUserId = session.user.id;
+                showApp();
+            }
+        };
+
+        async function handleAuth() {
+            const btn = document.getElementById('auth-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>অপেক্ষা করুন...';
+
+            const email = document.getElementById('email').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            if (!email || !pass) { alert("ইমেইল এবং পাসওয়ার্ড দিন!"); btn.innerHTML = originalText; return; }
+            
+            try {
+                if (isLoginMode) {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+                    if (error) throw error;
+                    currentUserId = data.user.id;
+                    showApp();
+                } else {
+                    const confPass = document.getElementById('conf-password').value.trim();
+                    if (pass !== confPass) { alert("পাসওয়ার্ড মেলেনি!"); btn.innerHTML = originalText; return; }
+                    const { error } = await supabaseClient.auth.signUp({ email, password: pass });
+                    if (error) throw error;
+                    alert("রেজিস্ট্রেশন সফল! লগইন করুন।");
+                    toggleAuthMode();
+                }
+                btn.innerHTML = originalText;
+            } catch (err) {
+                alert("ত্রুটি: " + err.message);
+                btn.innerHTML = originalText;
+            }
+        }
+
+        function showApp() {
+            document.getElementById('auth-section').classList.add('hide');
+            document.getElementById('app-section').classList.remove('hide');
+            loadData(); updateUI();
+        }
+
+        async function logoutUser() { await supabaseClient.auth.signOut(); location.reload(); }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hide'));
+            document.querySelectorAll('.floating-nav button').forEach(btn => {
+                btn.classList.remove('text-brand', 'scale-110'); btn.classList.add('text-gray-500');
+            });
+            document.getElementById(`${tabId}-view`).classList.remove('hide');
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            activeBtn.classList.remove('text-gray-500'); activeBtn.classList.add('text-brand', 'scale-110');
+            if(tabId === 'analyzer') renderChart();
+        }
+
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            let current = start; const range = end - start; const increment = end > start ? 1 : -1;
+            const stepTime = Math.abs(Math.floor(duration / range));
+            const obj = document.getElementById(id);
+            if(Math.abs(range) > 1000) { obj.innerText = end; return; }
+            const timer = setInterval(function() {
+                current += increment; obj.innerText = current;
+                if (current == end) { clearInterval(timer); }
+            }, stepTime < 1 ? 1 : stepTime);
+        }
+
+        let state = {};
+        const walletNames = { bkash: 'বিকাশ', nagad: 'নগদ', rocket: 'রকেট', bank: 'ব্যাংক', cash: 'ক্যাশ' };
+        let currentTxType = 'income'; let activeSavingsIndex = null; let lastTotalBal = 0; 
+
+        function loadData() {
+            const saved = localStorage.getItem('financePro_' + currentUserId);
+            if(saved) { state = JSON.parse(saved); } else {
+                state = { profile: { name: 'New User', avatar: '' }, wallets: { bkash: 0, nagad: 0, rocket: 0, bank: 0, cash: 0 }, transactions: [], debts: [], savings: [] };
+            }
+        }
+        function saveData() { localStorage.setItem('financePro_' + currentUserId, JSON.stringify(state)); updateUI(); }
+
+        function updateUI() {
+            document.getElementById('ui-profile-name').innerText = state.profile.name;
+            document.getElementById('header-name').innerText = state.profile.name;
+            document.getElementById('card-holder-name').innerText = state.profile.name;
+            
+            const pImg = document.getElementById('ui-profile-img'); const pIcon = document.getElementById('ui-profile-icon');
+            const hAv = document.getElementById('header-avatar'); const hIc = document.getElementById('header-icon');
+            if(state.profile.avatar) {
+                pImg.src = state.profile.avatar; pImg.classList.remove('hide'); pIcon.classList.add('hide');
+                hAv.src = state.profile.avatar; hAv.classList.remove('hide'); hIc.classList.add('hide');
+            } else {
+                pImg.classList.add('hide'); pIcon.classList.remove('hide'); hAv.classList.add('hide'); hIc.classList.remove('hide');
+            }
+
+            let totalBal = Object.values(state.wallets).reduce((a, b) => a + b, 0);
+            let totalDebt = state.debts.reduce((a, b) => a + b.amount, 0);
+            let todayIncome = 0, todayExpense = 0, totalIncome = 0, totalExpense = 0;
+            const todayStr = new Date().toDateString();
+            
+            state.transactions.forEach(tx => {
+                if(tx.type === 'income') totalIncome += tx.amount; else totalExpense += tx.amount;
+                if(new Date(tx.date).toDateString() === todayStr) {
+                    if(tx.type === 'income') todayIncome += tx.amount; else todayExpense += tx.amount;
+                }
+            });
+
+            animateValue("ui-total-balance", lastTotalBal, totalBal, 800); lastTotalBal = totalBal;
+            document.getElementById('ui-total-debt').innerText = `ঋণ: ৳ ${totalDebt}`;
+            document.getElementById('ui-today-income').innerText = `+ ৳ ${todayIncome}`;
+            document.getElementById('ui-today-expense').innerText = `- ৳ ${todayExpense}`;
+            
+            for(let key in state.wallets) { document.getElementById(`ui-bal-${key}`).innerText = `৳ ${state.wallets[key]}`; }
+
+            document.getElementById('ui-chart-income').innerText = `৳ ${totalIncome}`;
+            document.getElementById('ui-chart-expense').innerText = `৳ ${totalExpense}`;
+            document.getElementById('ui-chart-savings').innerText = `৳ ${totalBal}`;
+
+            const aiText = document.getElementById('ai-insight-text');
+            if(totalExpense > totalIncome) aiText.innerText = "সাবধান! আপনার খরচের হার আয়ের চেয়ে বেশি। একটু সাশ্রয়ী হওয়ার চেষ্টা করুন।";
+            else if(totalBal > 5000) aiText.innerText = "দারুণ! আপনার ব্যালেন্স বেশ ভালো অবস্থায় আছে। চাইলে একটি নতুন সেভিংস শুরু করতে পারেন।";
+            else aiText.innerText = "শুভ দিন! আপনার প্রতিটি লেনদেনের হিসাব রাখতে আমি সবসময় আপনার সাথে আছি।";
+
+            // Profile Stats update (raw numbers)
+            document.getElementById('ui-total-tx-count').innerText = state.transactions.length;
+            let compChallenges = 0; let totalPerc = 0;
+            state.savings.forEach(s => {
+                let p = Math.min(100, Math.round((s.saved / s.target) * 100));
+                totalPerc += p; if (p >= 100) compChallenges++;
+            });
+            let avgProgress = state.savings.length > 0 ? Math.round(totalPerc / state.savings.length) : 0;
+            
+            document.getElementById('ui-completed-challenges').innerText = compChallenges;
+            document.getElementById('ui-savings-progress').innerText = avgProgress + '%';
+
+            document.getElementById('badge-saver').classList.toggle('badge-active', compChallenges > 0);
+            document.getElementById('badge-debt').classList.toggle('badge-active', totalDebt === 0 && state.transactions.length > 0);
+            document.getElementById('badge-pro').classList.toggle('badge-active', state.transactions.length >= 10);
+
+            renderHistoryList(); renderDebts(); renderSavings();
+        }
+
+        function renderHistoryList() {
+            const list = document.getElementById('history-list');
+            if(state.transactions.length === 0) return list.innerHTML = '<p class="text-center text-gray-500 text-sm py-4">কোনো লেনদেন নেই</p>';
+            list.innerHTML = state.transactions.slice().reverse().map(tx => `
+                <div class="glass-panel p-4 flex justify-between items-center group hover:bg-white/5 transition-all">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full ${tx.type === 'income' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'} flex justify-center items-center shadow-inner">
+                            <i class="fa-solid fa-arrow-${tx.type === 'income' ? 'down' : 'up'}"></i>
+                        </div>
+                        <div><p class="text-sm font-bold text-white">${tx.note}</p><p class="text-[10px] text-gray-400">${walletNames[tx.wallet]} • ${new Date(tx.date).toLocaleDateString()}</p></div>
+                    </div>
+                    <span class="${tx.type === 'income' ? 'text-green-400' : 'text-red-400'} font-bold text-lg">${tx.type === 'income' ? '+' : '-'}৳ ${tx.amount}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderDebts() {
+            const list = document.getElementById('debt-list');
+            if(state.debts.length === 0) return list.innerHTML = '<p class="text-center text-gray-500 text-sm py-2">কোনো বকেয়া নেই</p>';
+            list.innerHTML = state.debts.map((d, i) => `
+                <div class="glass-panel p-4 border-l-4 border-red-500 flex justify-between items-center">
+                    <div><h4 class="font-bold text-white">${d.name}</h4><p class="text-[10px] text-gray-400">${new Date(d.date).toLocaleDateString()}</p></div>
+                    <div class="text-right"><p class="text-lg font-bold text-red-400">৳ ${d.amount}</p><button onclick="payDebt(${i})" class="text-[10px] bg-green-500/20 text-green-400 px-3 py-1 rounded-full mt-1">পেইড করুন</button></div>
+                </div>
+            `).join('');
+        }
+
+        function renderSavings() {
+            const list = document.getElementById('savings-list');
+            if(state.savings.length === 0) return list.innerHTML = '<p class="text-center text-gray-500 text-sm py-2">কোনো টার্গেট নেই</p>';
+            list.innerHTML = state.savings.map((s, i) => {
+                let perc = Math.min(100, Math.round((s.saved / s.target) * 100));
+                let remainingAmount = s.target - s.saved;
+                let daysLeft = 'সময় শেষ';
+                if(s.deadline) {
+                    const diffTime = Math.max(0, new Date(s.deadline) - new Date());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    daysLeft = diffDays > 0 ? `${diffDays} দিন বাকি` : 'আজই শেষ দিন';
+                }
+                return `
+                <div class="glass-panel p-5 relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-3 pr-4">
+                        <div><h4 class="font-bold text-white text-lg">${s.name}</h4><p class="text-[10px] text-gray-400"><i class="fa-regular fa-clock text-brand mr-1"></i>${daysLeft}</p></div>
+                        <span class="text-sm bg-brand/20 text-brand px-3 py-1 rounded-full border border-brand/30 font-bold">${perc}%</span>
+                    </div>
+                    <div class="w-full bg-white/10 rounded-full h-2.5 mb-3"><div class="bg-gradient-to-r from-blue-400 to-brand h-2.5 rounded-full shadow-[0_0_10px_rgba(0,242,254,0.5)] transition-all duration-500" style="width: ${perc}%"></div></div>
+                    <div class="flex justify-between items-end">
+                        <div class="text-xs text-gray-300"><p class="mb-1">জমা: <span class="font-bold text-white">৳ ${s.saved}</span> / ৳ ${s.target}</p><p class="text-red-300">বাকি: ৳ ${remainingAmount > 0 ? remainingAmount : 0}</p></div>
+                        <div class="flex gap-2"><button onclick="openModal('add_fund', ${i})" class="text-xs bg-brand text-slate-900 px-3 py-1.5 rounded font-bold hover:scale-105">+ জমা</button><button onclick="deleteSavings(${i})" class="text-xs bg-red-500/20 text-red-400 px-3 py-1.5 rounded"><i class="fa-solid fa-trash"></i></button></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function editProfileName() {
+            const newName = prompt("আপনার নতুন নাম লিখুন:", state.profile.name);
+            if(newName && newName.trim() !== "") { state.profile.name = newName.trim(); saveData(); }
+        }
+        function uploadAvatar(event) {
+            const file = event.target.files[0];
+            if (file) { const reader = new FileReader(); reader.onload = function(e) { state.profile.avatar = e.target.result; saveData(); }; reader.readAsDataURL(file); }
+        }
+
+        function openModal(type, index = null) {
+            const modal = document.getElementById('universal-modal');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            modal.classList.remove('hide');
+
+            if(type === 'transaction') {
+                title.innerText = "নতুন ট্রানজেকশন";
+                body.innerHTML = `
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <button id="btn-income" onclick="setTxType('income')" class="border border-green-500 text-green-400 py-3 rounded-xl font-bold bg-green-500/20"><i class="fa-solid fa-plus mr-2"></i>আয়</button>
+                        <button id="btn-expense" onclick="setTxType('expense')" class="glass-input text-gray-400 py-3 rounded-xl font-bold"><i class="fa-solid fa-minus mr-2"></i>ব্যয়</button>
+                    </div>
+                    <input type="number" id="inp-amount" placeholder="টাকার পরিমাণ (৳)" class="glass-input w-full p-4 rounded-xl mb-4 text-lg font-bold">
+                    <select id="inp-wallet" class="glass-input w-full p-4 rounded-xl mb-4"><option value="bkash">বিকাশ</option><option value="nagad">নগদ</option><option value="rocket">রকেট</option><option value="bank">ব্যাংক</option><option value="cash">ক্যাশ</option></select>
+                    <input type="text" id="inp-note" placeholder="খাতের নাম (যেমন: ফ্রিল্যান্সিং / বাজার)" class="glass-input w-full p-4 rounded-xl mb-6">
+                    <button onclick="saveTransaction()" class="btn-primary w-full p-4 rounded-xl font-bold">যুক্ত করুন</button>
+                `;
+                currentTxType = 'income';
+            } else if(type === 'savings') {
+                title.innerText = "নতুন সেভিংস টার্গেট";
+                body.innerHTML = `<input type="text" id="inp-sav-name" placeholder="টার্গেটের নাম" class="glass-input w-full p-4 rounded-xl mb-4"><input type="number" id="inp-sav-target" placeholder="মোট কত টাকা জমাতে চান? (৳)" class="glass-input w-full p-4 rounded-xl mb-4"><label class="text-xs text-gray-400 mb-1 block pl-2">কত তারিখের মধ্যে?</label><input type="date" id="inp-sav-date" class="glass-input w-full p-4 rounded-xl mb-6"><button onclick="saveSavings()" class="btn-primary w-full p-4 rounded-xl font-bold">টার্গেট সেট করুন</button>`;
+            } else if(type === 'add_fund') {
+                activeSavingsIndex = index;
+                title.innerText = `টাকা জমা দিন (${state.savings[index].name})`;
+                body.innerHTML = `<input type="number" id="inp-fund-amount" placeholder="আজ কত টাকা জমা রাখবেন? (৳)" class="glass-input w-full p-4 rounded-xl mb-6 text-lg"><button onclick="addFundToSavings()" class="btn-primary w-full p-4 rounded-xl font-bold">ফান্ড যুক্ত করুন</button>`;
+            } else if(type === 'debt') {
+                title.innerText = "নতুন ঋণ/বকেয়া";
+                body.innerHTML = `<input type="text" id="inp-debt-name" placeholder="খাতের নাম" class="glass-input w-full p-4 rounded-xl mb-4"><input type="number" id="inp-debt-amount" placeholder="পরিমাণ (৳)" class="glass-input w-full p-4 rounded-xl mb-6"><button onclick="saveDebt()" class="btn-primary w-full p-4 rounded-xl font-bold">সেভ করুন</button>`;
+            }
+        }
+        function closeModal() { document.getElementById('universal-modal').classList.add('hide'); }
+
+        function setTxType(type) {
+            currentTxType = type;
+            document.getElementById('btn-income').className = type === 'income' ? "border border-green-500 text-green-400 py-3 rounded-xl font-bold bg-green-500/20" : "glass-input text-gray-400 py-3 rounded-xl font-bold";
+            document.getElementById('btn-expense').className = type === 'expense' ? "border border-red-500 text-red-400 py-3 rounded-xl font-bold bg-red-500/20" : "glass-input text-gray-400 py-3 rounded-xl font-bold";
+        }
+
+        function saveTransaction() {
+            const amount = parseFloat(document.getElementById('inp-amount').value);
+            const wallet = document.getElementById('inp-wallet').value;
+            const note = document.getElementById('inp-note').value || (currentTxType==='income'?'আয়':'ব্যয়');
+            if(!amount) return alert('পরিমাণ লিখুন');
+            if (currentTxType === 'expense' && state.wallets[wallet] < amount) {
+                alert(`অসম্ভব! আপনার ${walletNames[wallet]}-এ মাত্র ৳ ${state.wallets[wallet]} আছে।`); return;
+            }
+            state.transactions.push({ type: currentTxType, amount, wallet, note, date: new Date().toISOString() });
+            state.wallets[wallet] += (currentTxType === 'income' ? amount : -amount);
+            saveData(); closeModal();
+        }
+
+        function saveSavings() { const name = document.getElementById('inp-sav-name').value; const target = parseFloat(document.getElementById('inp-sav-target').value); const deadline = document.getElementById('inp-sav-date').value; if(!name || !target || !deadline) return alert('সব তথ্য পূরণ করুন'); state.savings.push({ name, target, saved: 0, deadline }); saveData(); closeModal(); }
+        function addFundToSavings() { const fund = parseFloat(document.getElementById('inp-fund-amount').value); if(!fund || fund <= 0) return alert('সঠিক পরিমাণ লিখুন'); state.savings[activeSavingsIndex].saved += fund; saveData(); closeModal(); }
+        function deleteSavings(index) { if(confirm("এই টার্গেটটি কি মুছে ফেলতে চান?")) { state.savings.splice(index, 1); saveData(); } }
+        function saveDebt() { const name = document.getElementById('inp-debt-name').value; const amount = parseFloat(document.getElementById('inp-debt-amount').value); if(!name || !amount) return alert('সব তথ্য পূরণ করুন'); state.debts.push({ name, amount, date: new Date().toISOString() }); saveData(); closeModal(); }
+        function payDebt(index) { if(confirm("ঋণটি পেইড করবেন?")) { state.debts.splice(index, 1); saveData(); } }
+
+        let myChart = null;
+        function setChartMode(mode) {
+            chartMode = mode;
+            document.getElementById('btn-chart-income').className = mode === 'income' ? "flex-1 py-2 btn-primary rounded-xl text-sm font-bold shadow-lg" : "flex-1 py-2 text-gray-400 rounded-xl text-sm font-bold hover:bg-white/5 transition";
+            document.getElementById('btn-chart-expense').className = mode === 'expense' ? "flex-1 py-2 btn-primary rounded-xl text-sm font-bold shadow-lg" : "flex-1 py-2 text-gray-400 rounded-xl text-sm font-bold hover:bg-white/5 transition";
+            renderChart();
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('barChart').getContext('2d');
+            const startDate = document.getElementById('chart-start-date').value;
+            const endDate = document.getElementById('chart-end-date').value;
+            
+            let filteredTxs = state.transactions.filter(tx => tx.type === chartMode);
+            if (startDate) { const sDate = new Date(startDate).setHours(0,0,0,0); filteredTxs = filteredTxs.filter(tx => new Date(tx.date).getTime() >= sDate); }
+            if (endDate) { const eDate = new Date(endDate).setHours(23,59,59,999); filteredTxs = filteredTxs.filter(tx => new Date(tx.date).getTime() <= eDate); }
+
+            const grouped = {};
+            filteredTxs.forEach(tx => { grouped[tx.note] = (grouped[tx.note] || 0) + tx.amount; });
+            const labels = Object.keys(grouped);
+            const dataValues = Object.values(grouped);
+
+            if(myChart) myChart.destroy();
+            Chart.defaults.color = '#94a3b8';
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.length > 0 ? labels : ['কোনো ডেটা নেই'],
+                    datasets: [{ label: chartMode === 'income' ? 'আয় (৳)' : 'ব্যয় (৳)', data: dataValues.length > 0 ? dataValues : [0], backgroundColor: chartMode === 'income' ? '#10b981' : '#ef4444', borderRadius: 8, barPercentage: 0.5 }]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
+                }
+            });
+
+            const list = document.getElementById('analyzer-tx-list');
+            if(filteredTxs.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-500 text-sm py-4">এই তারিখে কোনো তথ্য নেই</p>';
+            } else {
+                list.innerHTML = filteredTxs.slice().reverse().map(tx => `
+                    <div class="glass-panel p-4 flex justify-between items-center border-l-4 ${tx.type === 'income' ? 'border-green-500' : 'border-red-500'}">
+                        <div><p class="text-sm font-bold text-white">${tx.note}</p><p class="text-[10px] text-gray-400">${walletNames[tx.wallet]} • ${new Date(tx.date).toLocaleDateString()}</p></div>
+                        <span class="${tx.type === 'income' ? 'text-green-400' : 'text-red-400'} font-bold text-lg">${tx.type === 'income' ? '+' : '-'}৳ ${tx.amount}</span>
+                    </div>`).join('');
+            }
+        }
+    </script>
+</body>
+</html>
