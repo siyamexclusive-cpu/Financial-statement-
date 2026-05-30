@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Smart Finance Tracker Pro</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<style>
+
+:root{
+--primary:#00e5ff;
+--secondary:#7c3aed;
+--glass:rgba(255,255,255,.08);
+--border:rgba(255,255,255,.12);
+}
+
+body{
+background:#070b14;
+color:white;
+font-family:Inter,sans-serif;
+overflow-x:hidden;
+}
+
+.glass{
+background:rgba(255,255,255,.05);
+backdrop-filter:blur(20px);
+border:1px solid rgba(255,255,255,.08);
+}
+
+.card-hover{
+transition:.3s;
+}
+
+.card-hover:hover{
+transform:translateY(-3px);
+}
+
+.bottom-safe{
+padding-bottom:90px;
+}
+
+.page{
+display:none;
+}
+
+.page.active{
+display:block;
+}
+
+.fab{
+position:fixed;
+bottom:75px;
+left:50%;
+transform:translateX(-50%);
+width:65px;
+height:65px;
+border-radius:50%;
+background:linear-gradient(135deg,#00e5ff,#7c3aed);
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:24px;
+box-shadow:0 0 30px rgba(0,229,255,.5);
+z-index:999;
+}
+
+.toast{
+position:fixed;
+top:20px;
+right:20px;
+z-index:9999;
+}
+
+.progress-ring{
+width:120px;
+height:120px;
+border-radius:50%;
+background:
+conic-gradient(#00e5ff 65%,rgba(255,255,255,.1) 0);
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+.progress-inner{
+width:90px;
+height:90px;
+border-radius:50%;
+background:#0b1220;
+display:flex;
+align-items:center;
+justify-content:center;
+font-weight:bold;
+}
+
+.modal{
+display:none;
+}
+
+.modal.show{
+display:flex;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- NETWORK STATUS -->
+
+<div id="networkBar"
+class="bg-green-500 text-center text-sm py-2">
+Online Sync Active
+</div>
+
+<!-- HEADER -->
+
+<header class="p-4">
+
+<div class="flex justify-between items-center">
+
+<div>
+<h1 class="text-2xl font-bold">
+Smart Finance
+</h1>
+<p class="text-gray-400 text-sm">
+ আয়-ব্যয় ব্যবস্থাপক
+</p>
+</div>
+
+<button
+class="glass p-3 rounded-xl">
+<i class="fa-solid fa-moon"></i>
+</button>
+
+</div>
+
+</header>
+
+<div class="bottom-safe">
+
+<!-- HOME -->
+
+<section id="homePage"
+class="page active p-4">
+
+<div class="glass rounded-3xl p-5">
+
+<p class="text-gray-400">
+Total Liquid Cash
+</p>
+
+<h2 class="text-4xl font-bold mt-2">
+৳0
+</h2>
+
+<button
+class="mt-4 px-4 py-2 rounded-xl bg-cyan-500">
+Add Initial Balance
+</button>
+
+</div>
+
+<div class="grid grid-cols-2 gap-3 mt-4">
+
+<div class="glass rounded-2xl p-4">
+
+<p class="text-gray-400 text-sm">
+Active Debts
+</p>
+
+<h3 class="text-xl font-bold">
+৳0
+</h3>
+
+</div>
+
+<div class="glass rounded-2xl p-4">
+
+<p class="text-gray-400 text-sm">
+Health Score
+</p>
+
+<h3 class="text-xl font-bold text-green-400">
+95
+</h3>
+
+</div>
+
+</div>
+
+<!-- Wallets -->
+
+<h3 class="mt-6 mb-3 font-semibold">
+Wallet Breakdown
+</h3>
+
+<div class="grid grid-cols-2 gap-3">
+
+<div class="glass rounded-2xl p-4">
+bKash
+<h4 class="font-bold">৳0</h4>
+</div>
+
+<div class="glass rounded-2xl p-4">
+Nagad
+<h4 class="font-bold">৳0</h4>
+</div>
+
+<div class="glass rounded-2xl p-4">
+Bank
+<h4 class="font-bold">৳0</h4>
+</div>
+
+<div class="glass rounded-2xl p-4">
+Cash
+<h4 class="font-bold">৳0</h4>
+</div>
+
+</div>
+
+<!-- Recent -->
+
+<h3 class="mt-6 mb-3 font-semibold">
+Recent Records
+</h3>
+
+<div class="space-y-3">
+
+<div class="glass rounded-2xl p-4">
+
+<div class="flex justify-between">
+
+<span>Sample Income</span>
+
+<span class="text-green-400">
++৳1000
+</span>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<!-- ANALYZER -->
+
+<section id="analyzerPage"
+class="page p-4">
+
+<div class="glass rounded-3xl p-4">
+
+<div class="flex gap-2 overflow-auto">
+
+<button class="px-3 py-2 glass rounded-xl">
+Today
+</button>
+
+<button class="px-3 py-2 glass rounded-xl">
+7 Days
+</button>
+
+<button class="px-3 py-2 glass rounded-xl">
+Month
+</button>
+
+<button class="px-3 py-2 glass rounded-xl">
+All
+</button>
+
+</div>
+
+</div>
+
+<div class="glass mt-4 rounded-3xl p-4">
+
+<canvas id="expenseChart"></canvas>
+
+</div>
+
+<div class="glass mt-4 rounded-3xl p-4">
+
+<h3 class="font-bold mb-3">
+Monthly Comparison
+</h3>
+
+<div class="flex justify-between">
+
+<span>Income</span>
+
+<span class="text-green-400">
++15%
+</span>
+
+</div>
+
+<div class="flex justify-between mt-2">
+
+<span>Expense</span>
+
+<span class="text-red-400">
+-8%
+</span>
+
+</div>
+
+</div>
+
+</section>
+
+<!-- GOALS -->
+
+<section id="goalsPage"
+class="page p-4">
+
+<div class="glass rounded-3xl p-5">
+
+<div class="flex justify-center">
+
+<div class="progress-ring">
+
+<div class="progress-inner">
+65%
+</div>
+
+</div>
+
+</div>
+
+<h3 class="text-center mt-4">
+Emergency Fund
+</h3>
+
+<button
+class="w-full mt-4 py-3 rounded-xl bg-cyan-500">
+Add Fund
+</button>
+
+</div>
+
+</section>
+
+<!-- PROFILE -->
+
+<section id="profilePage"
+class="page p-4">
+
+<div class="glass rounded-3xl p-5 text-center">
+
+<img
+src="https://placehold.co/120"
+class="w-24 h-24 rounded-full mx-auto">
+
+<h3 class="mt-3 text-xl font-bold">
+User Name
+</h3>
+
+<p class="text-gray-400">
+email@example.com
+</p>
+
+</div>
+
+<div class="glass rounded-3xl p-4 mt-4">
+
+<h3 class="font-semibold mb-3">
+Quick Notes
+</h3>
+
+<textarea
+class="w-full h-32 bg-transparent outline-none"></textarea>
+
+</div>
+
+</section>
+
+</div>
+
+<!-- FAB -->
+
+<button
+id="openModal"
+class="fab">
+
+<i class="fa-solid fa-plus"></i>
+
+</button>
+
+<!-- MODAL -->
+
+<div id="txModal"
+class="modal fixed inset-0 bg-black/70 items-end">
+
+<div class="bg-slate-900 w-full rounded-t-3xl p-5">
+
+<div class="flex justify-between mb-4">
+
+<h2 class="font-bold text-xl">
+Add Transaction
+</h2>
+
+<button id="closeModal">
+<i class="fa-solid fa-xmark"></i>
+</button>
+
+</div>
+
+<select
+class="w-full p-3 rounded-xl bg-slate-800 mb-3">
+
+<option>Income</option>
+<option>Expense</option>
+
+</select>
+
+<input
+type="text"
+placeholder="Category"
+class="w-full p-3 rounded-xl bg-slate-800 mb-3">
+
+<input
+type="number"
+placeholder="Amount"
+class="w-full p-3 rounded-xl bg-slate-800 mb-3">
+
+<button
+class="w-full bg-cyan-500 py-3 rounded-xl">
+
+Save Transaction
+
+</button>
+
+</div>
+
+</div>
+
+<!-- NAVIGATION -->
+
+<nav
+class="fixed bottom-0 left-0 right-0 glass border-t border-white/10">
+
+<div class="grid grid-cols-4 text-center py-3">
+
+<button onclick="showPage('homePage')">
+<i class="fa-solid fa-house"></i>
+</button>
+
+<button onclick="showPage('analyzerPage')">
+<i class="fa-solid fa-chart-pie"></i>
+</button>
+
+<button onclick="showPage('goalsPage')">
+<i class="fa-solid fa-bullseye"></i>
+</button>
+
+<button onclick="showPage('profilePage')">
+<i class="fa-solid fa-user"></i>
+</button>
+
+</div>
+
+</nav>
+
+<!-- TOAST -->
+
+<div id="toastContainer"
+class="toast"></div>
+
+<script>
+
+function showPage(id){
+
+document.querySelectorAll('.page')
+.forEach(p=>p.classList.remove('active'));
+
+document.getElementById(id)
+.classList.add('active');
+
+}
+
+const modal=document.getElementById("txModal");
+
+document.getElementById("openModal")
+.onclick=()=>modal.classList.add("show");
+
+document.getElementById("closeModal")
+.onclick=()=>modal.classList.remove("show");
+
+const ctx=document
+.getElementById("expenseChart");
+
+new Chart(ctx,{
+type:'doughnut',
+data:{
+labels:['Food','Bills','Shopping'],
+datasets:[{
+data:[30,20,50]
+}]
+}
+});
+
+</script>
+
+</body>
+</html>
