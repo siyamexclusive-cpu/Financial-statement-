@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BlishTracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Hind+Siliguri:wght@400;600&display=swap');
+        
+        :root {
+            /* Dark Mode (Default) */
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --danger: #ef4444;
+            --success: #10b981;
+            --nav-bg: rgba(15, 23, 42, 0.9);
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f1f5f9;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(0, 0, 0, 0.1);
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --nav-bg: rgba(255, 255, 255, 0.9);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', 'Hind Siliguri', sans-serif; }
+        body { background: var(--bg-color); color: var(--text-main); transition: 0.3s; padding-bottom: 80px; overflow-x: hidden; }
+        
+        /* Blish Style Typography */
+        .blish-text span { font-size: 0.75em; color: var(--text-muted); font-weight: 400; }
+        
+        /* Glassmorphism Classes */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        /* Screens */
+        .screen { display: none; padding: 20px; animation: fadeIn 0.3s ease; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Forms & Inputs */
+        input, select, button { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-main); outline: none; }
+        button { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
+        button:active { transform: scale(0.98); }
+        .btn-danger { background: var(--danger); }
+        .btn-success { background: var(--success); }
+
+        /* Dashboard specific */
+        .balance-card { text-align: center; margin-bottom: 20px; padding: 30px 20px; }
+        .balance-amount { font-size: 2.5rem; font-weight: 600; margin: 10px 0; }
+        .debt-text { color: var(--danger); font-size: 1rem; }
+        
+        .wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .wallet-card { text-align: center; padding: 15px 10px; }
+        .tx-list { display: flex; flex-direction: column; gap: 10px; }
+        .tx-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; }
+        .tx-item.expense .amt { color: var(--danger); }
+        .tx-item.income .amt { color: var(--success); }
+
+        /* Navigation */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 70px; background: var(--nav-bg); backdrop-filter: blur(10px); border-top: 1px solid var(--glass-border); display: flex; justify-content: space-around; align-items: center; z-index: 100; }
+        .nav-item { text-align: center; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; }
+        .nav-item.active { color: var(--accent); }
+        .fab { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); width: 60px; height: 60px; background: linear-gradient(135deg, var(--accent), #60a5fa); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 30px; color: white; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.4); cursor: pointer; border: 4px solid var(--bg-color); }
+
+        /* Modals */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 200; display: none; align-items: center; justify-content: center; }
+        .modal { width: 90%; max-height: 80vh; overflow-y: auto; }
+        
+        /* Premium Notification */
+        #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--danger); color: white; padding: 12px 24px; border-radius: 30px; z-index: 999; box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4); transition: top 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55); font-weight: 600; }
+        #toast.show { top: 30px; }
+
+        /* Autocomplete & Split */
+        .datalist-wrapper { position: relative; }
+        .split-row { display: flex; gap: 10px; }
+        
+        /* Profile Image */
+        .profile-img-wrapper { text-align: center; margin-bottom: 20px; }
+        .profile-img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent); }
+
+        /* Utilities */
+        .hidden { display: none !important; }
+        .mt-1 { margin-top: 10px; } .mb-1 { margin-bottom: 10px; }
+        .text-center { text-align: center; }
+        .flex-between { display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+
+    <div id="toast"></div>
+
+    <div id="auth-screen" class="screen active glass" style="margin: 20px auto; max-width: 400px; margin-top: 20vh;">
+        <h2 class="text-center blish-text mb-1">BlishTracker <span>(ফাইন্যান্স ট্র্যাকার)</span></h2>
+        <input type="email" id="auth-email" placeholder="Email (ইমেইল)">
+        <input type="password" id="auth-pass" placeholder="Password (পাসওয়ার্ড)">
+        <button onclick="handleLogin()">Login <span>(লগইন)</span></button>
+        <button onclick="handleRegister()" style="background:transparent; border:1px solid var(--accent); color:var(--accent);">Register <span>(রেজিস্টার)</span></button>
+    </div>
+
+    <div id="pin-screen" class="screen glass" style="margin: 20px auto; max-width: 400px; margin-top: 20vh; text-align: center;">
+        <h2 class="blish-text mb-1" id="pin-title">Enter PIN <span>(পিন দিন)</span></h2>
+        <input type="password" id="pin-input" maxlength="4" style="font-size: 2rem; text-align: center; letter-spacing: 15px;" placeholder="••••">
+        <button onclick="verifyPin()">Submit <span>(সাবমিট)</span></button>
+    </div>
+
+    <div id="app-wrapper" class="hidden">
+        
+        <div id="home-tab" class="screen active">
+            <div class="glass balance-card">
+                <h3 class="blish-text">Total Liquid Cash <span>(মোট তরল নগদ)</span></h3>
+                <div class="balance-amount" id="total-balance">৳ 0</div>
+                <div class="debt-text blish-text">Total Debt <span>(মোট ঋণ)</span>: <span id="total-debt">-৳ 0</span></div>
+                <button onclick="addInitialBalance()" class="mt-1" style="width: auto; padding: 8px 16px; border-radius: 20px;">+ Add Balance <span>(ব্যালেন্স যোগ করুন)</span></button>
+            </div>
+
+            <h4 class="blish-text mb-1">Wallets <span>(ওয়ালেটসমূহ)</span></h4>
+            <div class="wallet-grid" id="wallet-grid">
+                </div>
+
+            <h4 class="blish-text mb-1 mt-1">Recent Transactions <span>(সর্বশেষ লেনদেন)</span></h4>
+            <div class="glass tx-list" id="recent-tx-list">
+                </div>
+        </div>
+
+        <div id="analyzer-tab" class="screen">
+            <h3 class="blish-text mb-1">Analyzer <span>(অ্যানালাইজার)</span></h3>
+            <select id="date-filter" onchange="loadAnalyzer()">
+                <option value="all">All Time (সব সময়)</option>
+                <option value="today">Today (আজ)</option>
+                <option value="7days">Last 7 Days (গত ৭ দিন)</option>
+                <option value="month">This Month (চলতি মাস)</option>
+            </select>
+
+            <div class="glass mb-1 flex-between text-center">
+                <div><small>Income</small><br><strong class="success" style="color:var(--success)" id="ana-income">৳ 0</strong></div>
+                <div><small>Expense</small><br><strong class="danger" style="color:var(--danger)" id="ana-expense">৳ 0</strong></div>
+            </div>
+
+            <div class="glass mb-1">
+                <canvas id="expenseChart"></canvas>
+            </div>
+
+            <div class="glass mb-1">
+                <h4 class="blish-text">Monthly Comparison <span>(মাসিক তুলনা)</span></h4>
+                <p id="monthly-compare-text" style="font-size: 0.9rem; margin-top:5px;"></p>
+            </div>
+
+            <div class="glass">
+                <h4 class="blish-text">AI Financial Health <span>(আর্থিক স্বাস্থ্য)</span></h4>
+                <h2 id="ai-score" style="color: var(--accent);">Score: 0/100</h2>
+                <p id="ai-advice" style="font-size: 0.9rem; margin-top:5px; color: var(--text-muted);"></p>
+            </div>
+        </div>
+
+        <div id="target-tab" class="screen">
+            <h3 class="blish-text mb-1">Debts & Goals <span>(ঋণ ও লক্ষ্য)</span></h3>
+            
+            <h4 class="blish-text">Pending Debts <span>(বকেয়া ঋণ)</span></h4>
+            <div class="glass mb-1 tx-list" id="debt-list"></div>
+
+            <h4 class="blish-text mt-1">Savings Challenges <span>(সঞ্চয় চ্যালেঞ্জ)</span></h4>
+            <button onclick="document.getElementById('challenge-modal').style.display='flex'">+ New Challenge <span>(নতুন লক্ষ্য)</span></button>
+            <div class="glass tx-list mt-1" id="challenge-list"></div>
+        </div>
+
+        <div id="profile-tab" class="screen">
+            <div class="glass profile-img-wrapper">
+                <img src="https://via.placeholder.com/100" id="user-pfp" class="profile-img" onclick="document.getElementById('pfp-upload').click()">
+                <input type="file" id="pfp-upload" class="hidden" accept="image/*" onchange="savePfp(event)">
+                <h3 id="user-email-display" class="mt-1">User</h3>
+                <p class="blish-text">Total Tx: <span id="tx-count">0</span> <span>(মোট লেনদেন)</span></p>
+            </div>
+
+            <div class="glass mb-1">
+                <h4 class="blish-text">Quick Notes <span>(কুইক নোটস)</span></h4>
+                <textarea id="quick-notes" rows="4" style="width:100%; background:transparent; color:var(--text-main); border:1px solid var(--glass-border); border-radius:10px; padding:10px;" oninput="saveNotes()"></textarea>
+            </div>
+
+            <button onclick="toggleTheme()" class="glass mb-1" style="text-align:left;">Toggle Theme <span>(থিম পরিবর্তন)</span></button>
+            <button onclick="changePin()" class="glass mb-1" style="text-align:left;">Change PIN <span>(পিন পরিবর্তন)</span></button>
+            <button onclick="exportCSV()" class="glass btn-success mb-1" style="text-align:left;">Export CSV <span>(ডেটা ডাউনলোড)</span></button>
+            <button onclick="handleLogout()" class="glass btn-danger" style="text-align:left;">Secure Logout <span>(লগআউট)</span></button>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('home')">Home<br><span style="font-size:10px">হোম</span></div>
+            <div class="nav-item" onclick="switchTab('analyzer')">Analyze<br><span style="font-size:10px">অ্যানালাইজ</span></div>
+            <div class="fab" onclick="openTxModal()">+</div>
+            <div class="nav-item" onclick="switchTab('target')">Target<br><span style="font-size:10px">টার্গেট</span></div>
+            <div class="nav-item" onclick="switchTab('profile')">Profile<br><span style="font-size:10px">প্রোফাইল</span></div>
+        </div>
+    </div>
+
+    <div id="tx-modal" class="modal-overlay">
+        <div class="modal glass">
+            <h3 class="blish-text mb-1" id="tx-modal-title">Add Transaction <span>(লেনদেন যোগ করুন)</span></h3>
+            
+            <select id="tx-type" onchange="toggleSplitOption()">
+                <option value="expense">Expense (ব্যয়)</option>
+                <option value="income">Income (আয়)</option>
+                <option value="debt">Add Debt (ঋণ গ্রহণ)</option>
+            </select>
+
+            <select id="tx-wallet"></select>
+
+            <div style="display:flex; align-items:center; margin-bottom:12px; font-size:0.9rem;" id="split-wrapper">
+                <input type="checkbox" id="tx-split" style="width:auto; margin:0 10px 0 0;" onchange="renderSplitFields()"> 
+                <label for="tx-split">Split Bill (স্প্লিট বিল)</label>
+            </div>
+
+            <div id="single-tx-fields">
+                <div class="datalist-wrapper">
+                    <input type="text" id="tx-title" placeholder="Category/Title (খাত/নাম)" list="category-suggestions">
+                    <datalist id="category-suggestions">
+                        <option value="Food (খাবার)"></option><option value="Transport (যাতায়াত)"></option><option value="Salary (বেতন)"></option>
+                    </datalist>
+                </div>
+                <input type="number" id="tx-amount" placeholder="Amount (পরিমাণ ৳)">
+            </div>
+
+            <div id="split-tx-fields" class="hidden">
+                </div>
+
+            <div class="blish-text" style="font-size:0.8rem; margin-bottom:5px;">Receipt Image <span>(রসিদ আপলোড)</span></div>
+            <input type="file" id="tx-receipt" accept="image/*">
+            
+            <input type="hidden" id="tx-edit-id">
+
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button onclick="saveTransaction()" class="btn-success">Save <span>(সেভ)</span></button>
+                <button onclick="closeModal('tx-modal')" class="btn-danger">Cancel <span>(বাতিল)</span></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="receipt-modal" class="modal-overlay" onclick="closeModal('receipt-modal')">
+        <img id="receipt-img" src="" style="max-width:90%; max-height:90%; border-radius:10px;">
+    </div>
+
+    <div id="challenge-modal" class="modal-overlay">
+        <div class="modal glass">
+            <h3 class="blish-text mb-1">New Challenge <span>(নতুন লক্ষ্য)</span></h3>
+            <input type="text" id="ch-title" placeholder="Goal Name (লক্ষ্যের নাম)">
+            <input type="number" id="ch-goal" placeholder="Target Amount (টাকার পরিমাণ ৳)">
+            <input type="date" id="ch-date">
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button onclick="saveChallenge()" class="btn-success">Save</button>
+                <button onclick="closeModal('challenge-modal')" class="btn-danger">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration & Initialization ---
+        const SUPABASE_URL = 'https://fdsjlodrqjamseyghyoc.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_i2YmufkgDr9Jj9PEYeUrFQ_pjLLZz3e';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentUser = null;
+        let globalState = {
+            wallets: [], transactions: [], debts: [], challenges: []
+        };
+        let chartInstance = null;
+
+        // --- Utility Functions ---
+        const fmtMoney = (amount) => '৳ ' + parseFloat(amount).toLocaleString('en-IN');
+        const showToast = (msg) => {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        };
+        const switchTab = (tabId) => {
+            document.querySelectorAll('#app-wrapper .screen').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(tabId + '-tab').classList.add('active');
+            event.currentTarget.classList.add('active');
+            if(tabId === 'analyzer') loadAnalyzer();
+        };
+        const openModal = (id) => { document.getElementById(id).style.display = 'flex'; };
+        const closeModal = (id) => { document.getElementById(id).style.display = 'none'; };
+        const toggleTheme = () => {
+            const body = document.body;
+            body.dataset.theme = body.dataset.theme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('blish_theme', body.dataset.theme);
+        };
+
+        // --- Core Authentication ---
+        window.onload = async () => {
+            if(localStorage.getItem('blish_theme')) document.body.dataset.theme = localStorage.getItem('blish_theme');
+            
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                currentUser = session.user;
+                checkPinState();
+            } else {
+                document.getElementById('auth-screen').classList.add('active');
+            }
+            
+            // Notes & Pfp load
+            document.getElementById('quick-notes').value = localStorage.getItem('blish_notes') || '';
+            const pfp = localStorage.getItem('blish_pfp');
+            if(pfp) document.getElementById('user-pfp').src = pfp;
+
+            // Offline Sync Listener
+            window.addEventListener('online', syncOfflineData);
+        };
+
+        async function handleLogin() {
+            const e = document.getElementById('auth-email').value, p = document.getElementById('auth-pass').value;
+            const { data, error } = await supabase.auth.signInWithPassword({ email: e, password: p });
+            if(error) showToast(error.message);
+            else { currentUser = data.user; checkPinState(); }
+        }
+
+        async function handleRegister() {
+            const e = document.getElementById('auth-email').value, p = document.getElementById('auth-pass').value;
+            const { data, error } = await supabase.auth.signUp({ email: e, password: p });
+            if(error) showToast(error.message);
+            else { showToast("Registration Successful! Please Login."); }
+        }
+
+        async function handleLogout() {
+            await supabase.auth.signOut();
+            localStorage.removeItem('blish_pin');
+            location.reload();
+        }
+
+        // --- PIN Logic ---
+        function checkPinState() {
+            document.getElementById('auth-screen').classList.remove('active');
+            if(localStorage.getItem('blish_pin')) {
+                document.getElementById('pin-title').innerHTML = 'Enter PIN <span>(পিন দিন)</span>';
+                document.getElementById('pin-screen').classList.add('active');
+            } else {
+                document.getElementById('pin-title').innerHTML = 'Set 4-Digit PIN <span>(নতুন পিন সেট করুন)</span>';
+                document.getElementById('pin-screen').classList.add('active');
+            }
+        }
+
+        function verifyPin() {
+            const input = document.getElementById('pin-input').value;
+            if(input.length !== 4) return showToast("PIN must be 4 digits.");
+            
+            const savedPin = localStorage.getItem('blish_pin');
+            if(!savedPin) {
+                localStorage.setItem('blish_pin', input);
+                showToast("PIN Set Successfully!");
+                enterApp();
+            } else {
+                if(input === savedPin) enterApp();
+                else showToast("Incorrect PIN!");
+            }
+            document.getElementById('pin-input').value = '';
+        }
+
+        function changePin() {
+            localStorage.removeItem('blish_pin');
+            showToast("Please set a new PIN");
+            document.getElementById('app-wrapper').classList.add('hidden');
+            checkPinState();
+        }
+
+        // --- Main App Logic & DB Initialization ---
+        async function enterApp() {
+            document.getElementById('pin-screen').classList.remove('active');
+            document.getElementById('app-wrapper').classList.remove('hidden');
+            document.getElementById('user-email-display').innerText = currentUser.email;
+            await initDatabase();
+            setupRealtime();
+        }
+
+        async function initDatabase() {
+            // Check wallets, if none, create defaults
+            let { data: wData } = await supabase.from('wallets').select('*').eq('user_id', currentUser.id);
+            if(!wData || wData.length === 0) {
+                const defaults = ['bKash', 'Nagad', 'Rocket', 'Bank', 'Cash'].map(n => ({ user_id: currentUser.id, name: n, balance: 0 }));
+                await supabase.from('wallets').insert(defaults);
+                wData = await supabase.from('wallets').select('*').eq('user_id', currentUser.id);
+            }
+            globalState.wallets = wData;
+
+            // Fetch rest
+            const { data: tData } = await supabase.from('transactions').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+            globalState.transactions = tData || [];
+            
+            const { data: dData } = await supabase.from('debts').select('*').eq('user_id', currentUser.id).eq('status', 'unpaid');
+            globalState.debts = dData || [];
+
+            const { data: cData } = await supabase.from('challenges').select('*').eq('user_id', currentUser.id);
+            globalState.challenges = cData || [];
+
+            updateDashboard();
+        }
+
+        function setupRealtime() {
+            supabase.channel('custom-all-channel')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, initDatabase)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'wallets' }, initDatabase)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'debts' }, initDatabase)
+            .subscribe();
+        }
+
+        // --- UI Updaters ---
+        function updateDashboard() {
+            // 1. Total Liquid Cash (Sum of Wallets)
+            const liquidCash = globalState.wallets.reduce((acc, w) => acc + parseFloat(w.balance), 0);
+            document.getElementById('total-balance').innerText = fmtMoney(liquidCash);
+
+            // 2. Total Debt (Does not deduct from liquid cash)
+            const totalDebt = globalState.debts.reduce((acc, d) => acc + parseFloat(d.amount), 0);
+            document.getElementById('total-debt').innerText = '-' + fmtMoney(totalDebt);
+
+            // 3. Wallets Grid
+            const wg = document.getElementById('wallet-grid');
+            wg.innerHTML = '';
+            const wSelect = document.getElementById('tx-wallet');
+            wSelect.innerHTML = '';
+
+            globalState.wallets.forEach(w => {
+                wg.innerHTML += `<div class="glass wallet-card"><strong>${w.name}</strong><br>${fmtMoney(w.balance)}</div>`;
+                wSelect.innerHTML += `<option value="${w.name}">${w.name} (${fmtMoney(w.balance)})</option>`;
+            });
+
+            // 4. Recent Transactions (Max 10)
+            const rt = document.getElementById('recent-tx-list');
+            rt.innerHTML = '';
+            globalState.transactions.slice(0, 10).forEach(t => {
+                const sign = t.type === 'expense' ? '-' : '+';
+                const rcptIcon = t.receipt_b64 ? `<span onclick="viewReceipt('${t.id}')" style="cursor:pointer; margin-left:5px;">📄</span>` : '';
+                rt.innerHTML += `
+                    <div class="tx-item ${t.type}">
+                        <div>
+                            <strong>${t.title}</strong> ${rcptIcon} <br>
+                            <small class="blish-text">${t.wallet} | ${new Date(t.created_at).toLocaleDateString()}</small>
+                        </div>
+                        <div class="amt flex-between" style="align-items:center; gap:10px;">
+                            ${sign}${fmtMoney(t.amount)}
+                            <button onclick="editTx('${t.id}')" style="padding:4px 8px; width:auto; margin:0;">Edit</button>
+                        </div>
+                    </div>`;
+            });
+
+            // Update Target Data
+            updateTargetTab();
+            document.getElementById('tx-count').innerText = globalState.transactions.length;
+        }
+
+        function updateTargetTab() {
+            const dl = document.getElementById('debt-list');
+            dl.innerHTML = '';
+            globalState.debts.forEach(d => {
+                dl.innerHTML += `
+                    <div class="tx-item expense">
+                        <div><strong>${d.name}</strong><br><small>${new Date(d.created_at).toLocaleDateString()}</small></div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <span class="amt">${fmtMoney(d.amount)}</span>
+                            <button onclick="payDebt('${d.id}', ${d.amount})" class="btn-success" style="padding:4px 8px; width:auto; margin:0;">Pay</button>
+                        </div>
+                    </div>`;
+            });
+
+            const cl = document.getElementById('challenge-list');
+            cl.innerHTML = '';
+            globalState.challenges.forEach(c => {
+                const percent = Math.min(100, (c.current_amount / c.goal) * 100);
+                cl.innerHTML += `
+                    <div class="glass mb-1">
+                        <div class="flex-between"><strong>${c.title}</strong> <span>${fmtMoney(c.current_amount)} / ${fmtMoney(c.goal)}</span></div>
+                        <div style="height:10px; background:var(--glass-border); border-radius:5px; margin:5px 0; overflow:hidden;">
+                            <div style="height:100%; width:${percent}%; background:var(--success);"></div>
+                        </div>
+                        <small>Deadline: ${new Date(c.end_date).toLocaleDateString()}</small>
+                    </div>`;
+            });
+        }
+
+        // --- Transaction Logic ---
+        function openTxModal() {
+            document.getElementById('tx-edit-id').value = '';
+            document.getElementById('tx-title').value = '';
+            document.getElementById('tx-amount').value = '';
+            document.getElementById('tx-receipt').value = '';
+            document.getElementById('tx-split').checked = false;
+            document.getElementById('tx-modal-title').innerHTML = 'Add Transaction <span>(লেনদেন যোগ করুন)</span>';
+            toggleSplitOption();
+            openModal('tx-modal');
+        }
+
+        function toggleSplitOption() {
+            const type = document.getElementById('tx-type').value;
+            const wrap = document.getElementById('split-wrapper');
+            if(type === 'expense') wrap.style.display = 'flex';
+            else { wrap.style.display = 'none'; document.getElementById('tx-split').checked = false; }
+            renderSplitFields();
+        }
+
+        function renderSplitFields() {
+            const isSplit = document.getElementById('tx-split').checked;
+            document.getElementById('single-tx-fields').classList.toggle('hidden', isSplit);
+            const sf = document.getElementById('split-tx-fields');
+            sf.classList.toggle('hidden', !isSplit);
+            
+            if(isSplit && sf.innerHTML.trim() === '') {
+                sf.innerHTML = `
+                    <div class="split-row"><input type="text" placeholder="Item 1"><input type="number" placeholder="Amt"></div>
+                    <div class="split-row"><input type="text" placeholder="Item 2"><input type="number" placeholder="Amt"></div>
+                    <button onclick="addSplitRow()" type="button" style="background:transparent; border:1px dashed var(--accent); color:var(--accent);">+ Add Row</button>
+                `;
+            }
+        }
+        function addSplitRow() {
+            const btn = document.querySelector('#split-tx-fields button');
+            const div = document.createElement('div'); div.className = 'split-row';
+            div.innerHTML = `<input type="text" placeholder="Item"><input type="number" placeholder="Amt">`;
+            document.getElementById('split-tx-fields').insertBefore(div, btn);
+        }
+
+        function getBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        async function saveTransaction() {
+            const type = document.getElementById('tx-type').value;
+            const walletName = document.getElementById('tx-wallet').value;
+            const wallet = globalState.wallets.find(w => w.name === walletName);
+            const file = document.getElementById('tx-receipt').files[0];
+            let b64 = null;
+            if(file) b64 = await getBase64(file);
+
+            let txsToSave = [];
+            let totalDeduction = 0;
+
+            if(type === 'debt') {
+                const name = document.getElementById('tx-title').value;
+                const amt = parseFloat(document.getElementById('tx-amount').value);
+                if(!name || !amt) return showToast("Fill all fields");
+                const debtPayload = { user_id: currentUser.id, name: name, amount: amt, status: 'unpaid' };
+                await saveToDb('debts', [debtPayload]);
+                closeModal('tx-modal');
+                return initDatabase();
+            }
+
+            if(document.getElementById('tx-split').checked) {
+                const rows = document.querySelectorAll('.split-row');
+                rows.forEach(r => {
+                    const inputs = r.querySelectorAll('input');
+                    if(inputs[0].value && inputs[1].value) {
+                        const amt = parseFloat(inputs[1].value);
+                        totalDeduction += amt;
+                        txsToSave.push({ user_id: currentUser.id, title: inputs[0].value, amount: amt, type: type, wallet: walletName, receipt_b64: b64 });
+                    }
+                });
+            } else {
+                const title = document.getElementById('tx-title').value;
+                const amt = parseFloat(document.getElementById('tx-amount').value);
+                if(!title || !amt) return showToast("Fill all fields");
+                totalDeduction = amt;
+                const editId = document.getElementById('tx-edit-id').value;
+                
+                let payload = { user_id: currentUser.id, title: title, amount: amt, type: type, wallet: walletName, receipt_b64: b64 };
+                if(editId) {
+                    // Logic for edit: restore old balance, deduct new. For simplicity in UI, we just update tx. Real production needs strict SQL triggers.
+                    await supabase.from('transactions').update(payload).eq('id', editId);
+                    closeModal('tx-modal');
+                    return initDatabase();
+                } else {
+                    txsToSave.push(payload);
+                }
+            }
+
+            // Strict Logic: Wallet balance cannot go negative on expense
+            if(type === 'expense' && totalDeduction > wallet.balance) {
+                return showToast("Insufficient Balance! (অপর্যাপ্ত ব্যালেন্স)");
+            }
+
+            // Update Wallet Balance
+            const newBal = type === 'income' ? parseFloat(wallet.balance) + totalDeduction : parseFloat(wallet.balance) - totalDeduction;
+            
+            if(navigator.onLine) {
+                await supabase.from('transactions').insert(txsToSave);
+                await supabase.from('wallets').update({ balance: newBal }).eq('id', wallet.id);
+                initDatabase();
+            } else {
+                // Offline Logic
+                let offlineData = JSON.parse(localStorage.getItem('blish_offline') || '{"tx":[], "wallets":[]}');
+                offlineData.tx.push(...txsToSave);
+                offlineData.wallets.push({ id: wallet.id, balance: newBal });
+                localStorage.setItem('blish_offline', JSON.stringify(offlineData));
+                showToast("Saved Offline. Will sync when connected.");
+                // Optimistic UI update
+                wallet.balance = newBal; globalState.transactions.unshift(...txsToSave); updateDashboard();
+            }
+            closeModal('tx-modal');
+        }
+
+        async function syncOfflineData() {
+            const data = JSON.parse(localStorage.getItem('blish_offline'));
+            if(data && (data.tx.length > 0 || data.wallets.length > 0)) {
+                if(data.tx.length > 0) await supabase.from('transactions').insert(data.tx);
+                for(let w of data.wallets) {
+                    await supabase.from('wallets').update({balance: w.balance}).eq('id', w.id);
+                }
+                localStorage.removeItem('blish_offline');
+                showToast("Offline data synced!");
+                initDatabase();
+            }
+        }
+
+        async function saveToDb(table, payloadArray) {
+            const { error } = await supabase.from(table).insert(payloadArray);
+            if(error) showToast(error.message);
+        }
+
+        function editTx(id) {
+            const t = globalState.transactions.find(x => x.id === id);
+            document.getElementById('tx-edit-id').value = t.id;
+            document.getElementById('tx-type').value = t.type;
+            document.getElementById('tx-wallet').value = t.wallet;
+            document.getElementById('tx-title').value = t.title;
+            document.getElementById('tx-amount').value = t.amount;
+            document.getElementById('tx-modal-title').innerHTML = 'Edit Transaction <span>(সংশোধন করুন)</span>';
+            toggleSplitOption();
+            openModal('tx-modal');
+        }
+
+        async function addInitialBalance() {
+            const amt = prompt("Enter Initial Amount to add to Cash Wallet (৳):");
+            if(amt && !isNaN(amt)) {
+                const cashW = globalState.wallets.find(w => w.name === 'Cash') || globalState.wallets[0];
+                const newBal = parseFloat(cashW.balance) + parseFloat(amt);
+                await supabase.from('wallets').update({balance: newBal}).eq('id', cashW.id);
+                initDatabase();
+            }
+        }
+
+        async function payDebt(id, amount) {
+            const walletName = prompt(`Pay ${amount} from which wallet? (${globalState.wallets.map(w=>w.name).join(', ')})`, 'Cash');
+            const w = globalState.wallets.find(x => x.name.toLowerCase() === walletName?.toLowerCase());
+            if(!w) return showToast("Invalid Wallet");
+            if(w.balance < amount) return showToast("Insufficient Balance in Wallet");
+
+            await supabase.from('wallets').update({balance: w.balance - amount}).eq('id', w.id);
+            await supabase.from('debts').update({status: 'paid'}).eq('id', id);
+            initDatabase();
+            showToast("Debt Paid!");
+        }
+
+        // --- Analyzer Page Logic ---
+        function loadAnalyzer() {
+            const filter = document.getElementById('date-filter').value;
+            const now = new Date();
+            let filteredTx = globalState.transactions.filter(t => {
+                const txDate = new Date(t.created_at);
+                if(filter === 'today') return txDate.toDateString() === now.toDateString();
+                if(filter === '7days') return (now - txDate) <= 7 * 24 * 60 * 60 * 1000;
+                if(filter === 'month') return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
+                return true;
+            });
+
+            let inc = 0, exp = 0;
+            let catMap = {};
+            filteredTx.forEach(t => {
+                if(t.type === 'income') inc += t.amount;
+                else if(t.type === 'expense') {
+                    exp += t.amount;
+                    catMap[t.title] = (catMap[t.title] || 0) + t.amount;
+                }
+            });
+
+            document.getElementById('ana-income').innerText = fmtMoney(inc);
+            document.getElementById('ana-expense').innerText = fmtMoney(exp);
+
+            // AI Health Score (Max 100)
+            const totalBal = globalState.wallets.reduce((acc, w) => acc + parseFloat(w.balance), 0);
+            const totalDebt = globalState.debts.reduce((acc, d) => acc + parseFloat(d.amount), 0);
+            
+            let score = 100;
+            if(totalBal + totalDebt > 0) score = Math.max(0, Math.round((totalBal / (totalBal + totalDebt)) * 100));
+            else if (totalDebt > 0) score = 0;
+
+            const aiEl = document.getElementById('ai-score');
+            const aiAdv = document.getElementById('ai-advice');
+            aiEl.innerText = `Score: ${score}/100`;
+            if(score >= 80) { aiEl.style.color = 'var(--success)'; aiAdv.innerText = "চমৎকার! আপনার আর্থিক অবস্থা খুবই স্থিতিশীল। সঞ্চয় চালিয়ে যান।"; }
+            else if(score >= 50) { aiEl.style.color = '#eab308'; aiAdv.innerText = "মোটামুটি ভালো। তবে ঋণ কমানোর দিকে নজর দিলে আরও ভালো হবে।"; }
+            else { aiEl.style.color = 'var(--danger)'; aiAdv.innerText = "সতর্কতা! আপনার ঋণের পরিমাণ অনেক বেশি। দ্রুত ঋণ পরিশোধের পরিকল্পনা করুন।"; }
+
+            // Monthly compare (dummy logic based on current tx vs all tx average)
+            const monthlyIncAvg = globalState.transactions.filter(t=>t.type==='income').reduce((a,b)=>a+b.amount,0) / Math.max(1, (new Date().getMonth()+1));
+            const diff = inc - monthlyIncAvg;
+            document.getElementById('monthly-compare-text').innerHTML = diff >= 0 ? 
+                `গত মাসের গড়ের তুলনায় আপনার আয় <span style="color:var(--success)">${fmtMoney(diff)} বেশি</span>।` : 
+                `গত মাসের গড়ের তুলনায় আপনার আয় <span style="color:var(--danger)">${fmtMoney(Math.abs(diff))} কম</span>।`;
+
+            // Chart
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(catMap),
+                    datasets: [{
+                        data: Object.values(catMap),
+                        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6', '#8b5cf6', '#ec4899'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { plugins: { legend: { labels: { color: 'var(--text-main)' } } } }
+            });
+        }
+
+        // --- Goals ---
+        async function saveChallenge() {
+            const title = document.getElementById('ch-title').value;
+            const goal = parseFloat(document.getElementById('ch-goal').value);
+            const date = document.getElementById('ch-date').value;
+            if(!title || !goal || !date) return showToast("Fill all fields");
+            
+            await saveToDb('challenges', [{ user_id: currentUser.id, title: title, goal: goal, current_amount: 0, end_date: date }]);
+            closeModal('challenge-modal');
+            initDatabase();
+        }
+
+        // --- Profile Tools ---
+        function savePfp(event) {
+            const file = event.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    localStorage.setItem('blish_pfp', e.target.result);
+                    document.getElementById('user-pfp').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        function saveNotes() { localStorage.setItem('blish_notes', document.getElementById('quick-notes').value); }
+        function viewReceipt(id) {
+            const t = globalState.transactions.find(x => x.id === id);
+            if(t && t.receipt_b64) {
+                document.getElementById('receipt-img').src = t.receipt_b64;
+                openModal('receipt-modal');
+            }
+        }
+
+        function exportCSV() {
+            if(globalState.transactions.length === 0) return showToast("No data to export");
+            let csv = "Date,Type,Category,Amount,Wallet\n";
+            globalState.transactions.forEach(t => {
+                csv += `${new Date(t.created_at).toLocaleDateString()},${t.type},${t.title},${t.amount},${t.wallet}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', ''); a.setAttribute('href', url); a.setAttribute('download', 'BlishTracker_Data.csv');
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>
