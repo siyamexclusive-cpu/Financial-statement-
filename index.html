@@ -71,7 +71,7 @@
     </div>
 
     <div id="app-section" class="hide h-full flex flex-col relative z-10">
-    <div class="glass-panel rounded-none border-t-0 border-x-0 p-4 flex justify-between items-center shadow-lg relative overflow-hidden">
+        <div class="glass-panel rounded-none border-t-0 border-x-0 p-4 flex justify-between items-center shadow-lg relative overflow-hidden">
             <div id="sync-indicator" class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 to-blue-500 hide"></div>
             <div class="flex items-center gap-3 relative z-10">
                 <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-500 flex justify-center items-center font-bold text-slate-900 overflow-hidden">
@@ -85,10 +85,10 @@
             </div>
             <div class="flex gap-2 relative z-10">
                 <button onclick="forceCloudSync()" class="w-8 h-8 rounded-full glass-input flex justify-center items-center text-brand hover:bg-brand/10 transition-colors" title="Sync Data"><i id="sync-icon" class="fa-solid fa-cloud-arrow-up text-[10px]"></i></button>
-                
                 <button onclick="logoutUser()" class="w-8 h-8 rounded-full glass-input flex justify-center items-center text-red-400 hover:bg-red-500/10 transition-colors" title="Logout"><i class="fa-solid fa-power-off"></i></button>
             </div>
         </div>
+
         <div class="flex-1 overflow-y-auto p-5 pb-56">
             
             <div id="home-view" class="view-section transition-opacity duration-300">
@@ -165,7 +165,7 @@
                                 <i class="fa-solid fa-sack-dollar"></i>
                             </div>
                             <div>
-                                <p class="text-lg font-bold text-emerald-400 uppercase tracking-widest" id="lang-earn-title">আর্ন মানি</p>
+                                <p class="text-xl font-bold text-emerald-400 uppercase tracking-widest" id="lang-earn-title">আর্ন মানি</p>
                                 <p class="text-xs text-gray-300 mt-1" id="lang-earn-badge">শীঘ্রই আসছে...</p>
                             </div>
                         </div>
@@ -176,7 +176,7 @@
                     
                     <div id="earn-info-box" class="hide mt-4 p-3 bg-black/30 rounded-lg border border-white/5 transition-all">
                         <p class="text-xs text-gray-300 leading-relaxed font-medium" id="lang-earn-desc">
-                            <i class="fa-solid fa-sparkles text-emerald-400 mr-1"></i> পরবর্তীতে এখান থেকে আপনি খুব সহজেই ভালো পরিমাণ একটি স্মার্ট ইনকাম জেনারেট করতে পারবেন। ফিচারটি খুব দ্রুতই আসছে!
+                            <i class="fa-solid fa-sparkles text-emerald-400 mr-1"></i> পরবর্তীতে এখান থেকে আপনি খুব সহজেই ভালো পরিমাণ একটিスマート ইনকাম জেনারেট করতে পারবেন। ফিচারটি খুব দ্রুতই আসছে!
                         </p>
                     </div>
                 </div>
@@ -248,7 +248,8 @@
                             <label for="avatar-upload" class="absolute bottom-0 right-0 w-8 h-8 bg-brand rounded-full flex justify-center items-center text-slate-900 cursor-pointer shadow-lg"><i class="fa-solid fa-camera text-sm"></i></label>
                             <input type="file" id="avatar-upload" accept="image/*" class="hide" onchange="uploadAvatar(event)">
                         </div>
-                        <h2 id="ui-profile-name" class="text-xl font-bold tracking-wide text-white mt-2">User</h2>
+                        
+                        <h2 id="ui-profile-name" onclick="editProfileName()" class="text-xl font-bold tracking-wide text-white mt-2 cursor-pointer hover:text-brand transition-colors" title="Edit Name">User <i class="fa-solid fa-pen text-[10px] text-gray-400 ml-1"></i></h2>
                         <p id="ui-profile-email" class="text-[10px] text-gray-400 tracking-widest mb-3">loading...</p>
                         
                         <div class="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 px-4 py-1.5 rounded-full">
@@ -335,7 +336,6 @@
 
         let appLang = localStorage.getItem('financeProLang') || 'bn';
 
-        // DICTIONARY
         const langDict = {
             'bn': {
                 welcome: "Welcome to Finance Pro.",
@@ -533,11 +533,26 @@
         }
 
         function updateUI() {
-            document.getElementById('ui-profile-name').innerText = state.profile.name;
-            document.getElementById('header-name').innerText = state.profile.name;
-            document.getElementById('card-holder-name').innerText = state.profile.name;
+            document.getElementById('ui-profile-name').innerHTML = `${state.profile.name || 'Tanvir Siyam'} <i class="fa-solid fa-pen text-[10px] text-gray-400 ml-1"></i>`;
+            document.getElementById('header-name').innerText = state.profile.name || 'Tanvir Siyam';
+            document.getElementById('card-holder-name').innerText = state.profile.name || 'Tanvir Siyam';
             document.getElementById('ui-profile-email').innerText = currentUserEmail; 
             
+            // PROFILE IMAGE & AVATAR HANDLER
+            if (state.profile.avatar) {
+                document.getElementById('ui-profile-img').src = state.profile.avatar;
+                document.getElementById('ui-profile-img').classList.remove('hide');
+                document.getElementById('ui-profile-icon').classList.add('hide');
+                document.getElementById('header-avatar').src = state.profile.avatar;
+                document.getElementById('header-avatar').classList.remove('hide');
+                document.getElementById('header-icon').classList.add('hide');
+            } else {
+                document.getElementById('ui-profile-img').classList.add('hide');
+                document.getElementById('ui-profile-icon').classList.remove('hide');
+                document.getElementById('header-avatar').classList.add('hide');
+                document.getElementById('header-icon').classList.remove('hide');
+            }
+
             let totalBal = Object.values(state.wallets).reduce((a, b) => a + b, 0);
             let totalDebt = state.debts.filter(d => d.mode === 'payable').reduce((a, b) => a + b.amount, 0);
             let todayInc = 0, todayExp = 0; const todayStr = new Date().toDateString();
@@ -740,7 +755,21 @@
             const np = document.getElementById('inp-new-pass').value; if(np !== document.getElementById('inp-conf-pass').value) return alert('Mismatch');
             await supabaseClient.auth.updateUser({ password: np }); alert('Password Updated!'); closeModal();
         }
-        function editProfileName() { const n = prompt("Name:", state.profile.name); if(n) { state.profile.name = n; saveData(); } }
+        
+        // INTERACTIVE RE-ADDED AND BOUND RECONCILED EVENTS
+        function editProfileName() { 
+            const n = prompt("আপনার নাম পরিবর্তন করুন:", state.profile.name || "Tanvir Siyam"); 
+            if(n && n.trim() !== "") { state.profile.name = n.trim(); saveData(); } 
+        }
+
+        function uploadAvatar(event) { 
+            const file = event.target.files[0]; 
+            if (file) { 
+                const reader = new FileReader(); 
+                reader.onload = function(e) { state.profile.avatar = e.target.result; saveData(); }; 
+                reader.readAsDataURL(file); 
+            } 
+        }
     </script>
 </body>
 </html>
