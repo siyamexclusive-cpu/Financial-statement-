@@ -2,33 +2,37 @@ const TelegramBot = require('node-telegram-bot-api');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 
-// আপনার টোকেনগুলো এখানে সরাসরি বসানো আছে
-const token = '8640735046:AAGsvDTzHeb1PDjMnXJarRGyD3Ujyjtwkxs'; // BotFather থেকে পাওয়া টোকেন দিন
-const supabaseUrl = 'https://fdsjlodrqjamseyghyoc.supabase.co';
-const supabaseKey = 'sb_publishable_i2YmufkgDr9Jj9PEYeUrFQ_pjLLZz3e';
+const token = process.env.TELEGRAM_BOT_TOKEN;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
 
-// Initialize Supabase & Telegram Bot
+// টোকেন মিসিং থাকলে লগে দেখাবে
+if (!token || !supabaseUrl || !supabaseKey) {
+    console.error("⚠️ Error: Environment Variables Missing!");
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 const bot = new TelegramBot(token);
 
-// Helper: Convert Telegram ID to UUID format for Supabase
 function getUserId(telegramId) {
     const hash = crypto.createHash('md5').update(telegramId.toString()).digest('hex');
     return `${hash.substring(0,8)}-${hash.substring(8,12)}-${hash.substring(12,16)}-${hash.substring(16,20)}-${hash.substring(20,32)}`;
 }
 
-// Webhook Handler for Vercel
 module.exports = async (req, res) => {
     try {
+        console.log("✅ Webhook Hit Received from Telegram!"); 
+
         if (req.method === 'POST') {
             const update = req.body;
+            console.log("📩 User Message:", JSON.stringify(update.message?.text)); 
 
             if (update.message && update.message.text) {
                 const chatId = update.message.chat.id;
                 const text = update.message.text.trim();
                 const userId = getUserId(update.message.from.id);
 
-                // --- 1. START MENU ---
+                // --- START MENU ---
                 if (text === '/start') {
                     const welcomeMsg = `স্বাগতম <b>BlishTracker</b>-এ! 💎\nআপনার প্রিমিয়াম ফাইন্যান্স ট্র্যাকার এখন টেলিগ্রামে রেডি।\n\n<b>কীভাবে হিসাব রাখবেন?</b>\n➕ আয়ের জন্য লিখুন: <code>+ পরিমাণ খাত ওয়ালেট</code>\n(যেমন: <code>+ 5000 Salary Bank</code>)\n\n➖ ব্যয়ের জন্য লিখুন: <code>- পরিমাণ খাত ওয়ালেট</code>\n(যেমন: <code>- 200 Food bKash</code>)\n\n📝 ঋণের জন্য লিখুন: <code>ধার পরিমাণ নাম</code>\n(যেমন: <code>ধার 500 Rahim</code>)`;
                     
@@ -43,10 +47,11 @@ module.exports = async (req, res) => {
                         }
                     };
                     await bot.sendMessage(chatId, welcomeMsg, opts);
+                    console.log("✅ Start message sent successfully!");
                     return res.status(200).send('OK');
                 }
 
-                // --- 2. CHECK BALANCE ---
+                // --- CHECK BALANCE ---
                 if (text === '💰 ব্যালেন্স') {
                     const { data: wallets } = await supabase.from('wallets').select('*').eq('user_id', userId);
                     const { data: debts } = await supabase.from('debts').select('*').eq('user_id', userId).eq('status', 'unpaid');
@@ -76,7 +81,7 @@ module.exports = async (req, res) => {
                     return res.status(200).send('OK');
                 }
 
-                // --- 3. HELPER BUTTONS ---
+                // --- HELPER BUTTONS ---
                 if (text === '➕ আয় যুক্ত করুন') {
                     await bot.sendMessage(chatId, "আয় যুক্ত করতে মেসেজে লিখুন:\n<code>+ 500 Freelance bKash</code>", { parse_mode: 'HTML' });
                     return res.status(200).send('OK');
@@ -90,7 +95,7 @@ module.exports = async (req, res) => {
                     return res.status(200).send('OK');
                 }
 
-                // --- 4. RECORD TRANSACTION (+ / -) ---
+                // --- RECORD TRANSACTION (+ / -) ---
                 const txMatch = text.match(/^([+-])\s*(\d+(\.\d+)?)\s+(.+?)\s+(.+)$/i);
                 if (txMatch) {
                     const sign = txMatch[1];
@@ -99,7 +104,6 @@ module.exports = async (req, res) => {
                     const walletName = txMatch[5].trim();
                     const type = sign === '+' ? 'income' : 'expense';
 
-                    // Fetch or Create Wallet
                     let { data: walletData } = await supabase.from('wallets').select('*').eq('user_id', userId).ilike('name', walletName).single();
                     
                     if (!walletData) {
@@ -107,17 +111,14 @@ module.exports = async (req, res) => {
                         walletData = newWallet;
                     }
 
-                    // Negative Balance Protection for Expense
                     if (type === 'expense' && parseFloat(walletData.balance) < amount) {
                         await bot.sendMessage(chatId, `❌ <b>অপর্যাপ্ত ব্যালেন্স!</b>\nআপনার ${walletData.name} ওয়ালেটে আছে মাত্র ৳${walletData.balance}।`, { parse_mode: 'HTML' });
                         return res.status(200).send('OK');
                     }
 
-                    // Update Wallet Balance
                     const newBalance = type === 'income' ? parseFloat(walletData.balance) + amount : parseFloat(walletData.balance) - amount;
                     await supabase.from('wallets').update({ balance: newBalance }).eq('id', walletData.id);
 
-                    // Insert Transaction
                     await supabase.from('transactions').insert([{
                         user_id: userId,
                         title: category,
@@ -131,7 +132,7 @@ module.exports = async (req, res) => {
                     return res.status(200).send('OK');
                 }
 
-                // --- 5. RECORD DEBT ---
+                // --- RECORD DEBT ---
                 const debtMatch = text.match(/^ধার\s*(\d+(\.\d+)?)\s+(.+)$/i);
                 if (debtMatch) {
                     const amount = parseFloat(debtMatch[1]);
@@ -148,13 +149,13 @@ module.exports = async (req, res) => {
                     return res.status(200).send('OK');
                 }
 
-                // If input doesn't match any command
                 await bot.sendMessage(chatId, "⚠️ কমান্ড বুঝতে পারিনি। দয়া করে সঠিক ফরম্যাট ব্যবহার করুন বা /start চাপুন।");
             }
         }
         res.status(200).send('OK');
     } catch (error) {
-        console.error("Bot Error: ", error);
-        res.status(500).send('Server Error');
+        console.error("❌ Bot Critical Error: ", error);
+        // Error হলেও টেলিগ্রামকে 200 পাঠাতে হয়, নাহলে সে বারবার মেসেজ পাঠাতে থাকে
+        res.status(200).send('OK'); 
     }
 };
